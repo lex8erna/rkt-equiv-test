@@ -11,6 +11,7 @@
  test-all)
 
 ;; A DelayExp is a (delay Any)
+;; Any includes all unevaluated expressions.
 
 ;; Carries the number of testing sets
 (define test-iteration 0)
@@ -34,7 +35,7 @@
                     [else "failed"]))
           (printf "Test ~a.\n" pass-or-fail)))))
 
-;; test-all: Any ... -> Void
+;; test-all: DelayExp ... -> Void
 ;; Purpose: Calls test-start using a list created from delaying 
 ;;          all given arguments. Initiates the evaluation process.
 ;;          Larger scale version of test-one.
@@ -53,12 +54,12 @@
    (printf "Starting Test Set #~a\n" test-iteration)
    (test-set tests 0 0))
 
-;; test-set: (list DelayExp) Nat Nat -> Void
+;; test-set: (listof DelayExp) Nat Nat -> Void
 ;; Purpose: Evaluates a list of DelayExp as follows:
 ;;
 ;;          For each DelayExp of the form (list expression expression ...),
 ;;          - test-set interchangeably accepts a value for an expression
-;;          - test-set tests the equality of the first two expressions per argument and ignores the rest
+;;          - test-set tests the equality of the set's members
 ;;          - test-set prints the result as a pass or fail message
 ;;            - if an error occurs, the error is listed and test-set resumes testing
 ;;          If any DelayExp is not of the form (list expression expression ...),
@@ -74,12 +75,15 @@
           (with-handlers ((exn:fail? (lambda (exn) 
            (printf "Test #~a failed with an exception as follows:\n~a\n" index (exn-message exn))
            (test-set (cdr tests) (add1 index) passed))))
-           (define pass-or-fail 
-               (cond [(equal? (car (force (car tests))) 
-                              (cadr (force (car tests))))
+            (define (test-loop result test-list)
+               (cond [(empty? test-list)
                       (set! passed (add1 passed))
                       "passed"]
+                     [(equal? result (car test-list))
+                      (test-loop result (cdr test-list))]
                      [else "failed"]))
-           (printf "Test #~a ~a.\n" index pass-or-fail)
+            (define (start-loop test-list)
+              (test-loop (car test-list) (cdr test-list)))
+           (printf "Test #~a ~a.\n" index (start-loop (force (car tests))))
            (test-set (cdr tests) (add1 index) passed))]))
 
